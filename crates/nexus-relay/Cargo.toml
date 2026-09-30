@@ -1,0 +1,18 @@
+[package]
+name = "nexus-relay"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "High-performance multi-client bonding relay daemon for Linux VPS / Docker"
+
+[dependencies]
+nexus-proto = { path = "../nexus-proto" }
+nexus-crypto = { path = "../nexus-crypto" }
+nexus-sched = { path = "../nexus-sched" }
+nexus-tun = { path = "../nexus-tun" }
+tokio.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+serde.workspace = true
+toml.workspace = true

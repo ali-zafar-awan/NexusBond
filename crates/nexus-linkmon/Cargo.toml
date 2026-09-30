@@ -1,0 +1,13 @@
+[package]
+name = "nexus-linkmon"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Network interface discovery, socket binding, link health probing, and BBR delivery rate estimator"
+
+[dependencies]
+tokio.workspace = true
+thiserror.workspace = true
+socket2.workspace = true
+tracing.workspace = true
+serde.workspace = true

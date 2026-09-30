@@ -1,0 +1,13 @@
+[package]
+name = "nexus-localdispatch"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Local multi-WAN smart dispatch (SOCKS5/HTTP proxies and DNS multiplexer) in Rust (Mode A)"
+
+[dependencies]
+nexus-linkmon = { path = "../nexus-linkmon" }
+tokio.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+socket2.workspace = true

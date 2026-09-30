@@ -1,0 +1,12 @@
+[package]
+name = "nexus-crypto"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Noise_IK handshake, ChaCha20-Poly1305 AEAD, BLAKE2s, replay protection for NexusBond"
+
+[dependencies]
+thiserror.workspace = true
+chacha20poly1305.workspace = true
+snow.workspace = true
+blake2.workspace = true

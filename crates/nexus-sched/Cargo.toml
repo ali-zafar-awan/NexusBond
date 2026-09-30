@@ -1,0 +1,13 @@
+[package]
+name = "nexus-sched"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Predictive packet scheduler, BBR pacing, reorder buffer, FEC, and packet deduplication"
+
+[dependencies]
+nexus-proto = { path = "../nexus-proto" }
+nexus-linkmon = { path = "../nexus-linkmon" }
+thiserror.workspace = true
+bytes.workspace = true
+tracing.workspace = true

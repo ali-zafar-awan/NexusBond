@@ -1,0 +1,12 @@
+[package]
+name = "nexus-tun"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Cross-platform virtual TUN adapter capture (WinTUN on Windows, utun on macOS, /dev/net/tun on Linux)"
+
+[dependencies]
+tokio.workspace = true
+thiserror.workspace = true
+bytes.workspace = true
+tracing.workspace = true

@@ -1,0 +1,13 @@
+[package]
+name = "nexus-fetch"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Multi-source parallel HTTP/HTTPS chunk fetcher (Mode A+)"
+
+[dependencies]
+nexus-linkmon = { path = "../nexus-linkmon" }
+tokio.workspace = true
+thiserror.workspace = true
+bytes.workspace = true
+tracing.workspace = true
