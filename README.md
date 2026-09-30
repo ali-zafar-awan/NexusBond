@@ -195,58 +195,41 @@ cd ..
 
 ---
 
-## ⚡ Quick Start & Stop Guide
+## ⚡ Quick Start & Stop Guide (All Operating Systems)
 
-### 🚀 1. Run Everything in 1-Click (Windows)
-Double-click [`scripts/start-all.bat`](file:///d:/NexusBond/scripts/start-all.bat) or run from PowerShell:
-```powershell
-d:\NexusBond\scripts\start-all.bat
-```
-
-**What happens automatically:**
-1. Starts the **NexusBond Core Engine** (port `5000`, SOCKS5 `1080`, HTTP `8080`).
-2. Starts the **Dashboard UI Web Server** at [**http://localhost:5173**](http://localhost:5173).
-3. **Automatically Enables Windows System Proxy** (`127.0.0.1:8080`) so all your browsers (Chrome, Edge, Firefox, Brave), video streaming, fast.com, and downloads **immediately aggregate across all links with zero manual setup**!
+### 🪟 Windows (1-Click Auto-Bonding)
+- **Start Everything:** Double-click [`scripts/start-all.bat`](file:///d:/NexusBond/scripts/start-all.bat) or run `scripts\start-all.bat`.
+  - *Starts Engine + UI + Automatically enables Windows System Proxy (`127.0.0.1:8080`).*
+- **Stop Everything:** Double-click [`scripts/stop-all.bat`](file:///d:/NexusBond/scripts/stop-all.bat) or run `scripts\stop-all.bat`.
+  - *Stops all processes + Automatically restores direct internet routing.*
+- **Manual Proxy Toggles:** [`scripts/enable-windows-proxy.bat`](file:///d:/NexusBond/scripts/enable-windows-proxy.bat) and [`scripts/disable-windows-proxy.bat`](file:///d:/NexusBond/scripts/disable-windows-proxy.bat).
 
 ---
 
-### 🛑 2. Turn Off Everything in 1-Click
-Double-click [`scripts/stop-all.bat`](file:///d:/NexusBond/scripts/stop-all.bat) or run:
-```powershell
-d:\NexusBond\scripts\stop-all.bat
-```
-
-**What happens automatically:**
-- Cleanly shuts down the Engine and UI servers.
-- **Automatically Disables Windows System Proxy** and restores standard direct network routing.
-- Resets Windows network adapter metrics to default.
-
----
-
-### 🎛️ 3. Manual Proxy Toggle Scripts (Standalone)
-If you wish to toggle the Windows proxy independently without stopping the servers:
-- **Enable Proxy Manually:** Double-click [`scripts/enable-windows-proxy.bat`](file:///d:/NexusBond/scripts/enable-windows-proxy.bat)
-- **Disable Proxy Manually:** Double-click [`scripts/disable-windows-proxy.bat`](file:///d:/NexusBond/scripts/disable-windows-proxy.bat)
+### 🐧 Linux & 🍏 macOS (1-Click Auto-Bonding)
+- **Start Everything:** Run `./scripts/start-all.sh`:
+  ```bash
+  chmod +x scripts/*.sh
+  ./scripts/start-all.sh
+  ```
+  - *Starts Engine + UI + Automatically configures GNOME (`gsettings`) on Linux or `networksetup` on macOS (`127.0.0.1:8080`)!*
+- **Stop Everything:** Run `./scripts/stop-all.sh` *(or press `Ctrl + C` in the launcher)*:
+  ```bash
+  ./scripts/stop-all.sh
+  ```
+  - *Stops all processes + Automatically disables system proxy and restores direct connection.*
+- **Manual Toggles:**
+  - Linux: `./scripts/enable-linux-proxy.sh` and `./scripts/disable-linux-proxy.sh`
+  - macOS: `./scripts/enable-macos-proxy.sh` and `./scripts/disable-macos-proxy.sh`
 
 ---
 
-### 🐧 4. Running Manually via Terminal (Linux / macOS / CLI)
-
-**Terminal 1 (Backend Core Engine):**
-```bash
-python -m core_engine.main
-```
-
-**Terminal 2 (React Frontend UI):**
-```bash
-cd ui
-npm run dev -- --host 127.0.0.1 --port 5173
-```
-
-- **Dashboard UI**: [**http://localhost:5173**](http://localhost:5173)
-- **Control API**: `http://127.0.0.1:5000`
+### 🌐 Verified Service Endpoints (All Platforms)
+- **Dashboard UI**: [**http://localhost:5173**](http://localhost:5173) *(or http://127.0.0.1:5173)*
+- **Control API & Live Metrics**: `http://127.0.0.1:5000`
 - **SOCKS5 Multi-WAN Proxy**: `127.0.0.1:1080`
 - **HTTP/HTTPS Proxy**: `127.0.0.1:8080`
+
 
 ---
 
