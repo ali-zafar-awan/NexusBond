@@ -1,0 +1,3 @@
+[submodule "private_modules"]
+	path = private_modules
+	url = https://github.com/ali-zafar-awan/NexusBond-Private.git
