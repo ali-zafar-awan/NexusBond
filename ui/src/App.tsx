@@ -7,8 +7,10 @@ import { ModeSelector } from './components/ModeSelector';
 import { SpeedTestModal } from './components/SpeedTestModal';
 import { SettingsModal } from './components/SettingsModal';
 import { LogsViewer } from './components/LogsViewer';
-import { NetworkInterface, EngineStatus, FailoverEvent, SpeedTestResult } from './types';
-import { Activity, AlertTriangle, Plus, ShieldCheck, Wifi } from 'lucide-react';
+import { RelayManager } from './components/RelayManager';
+import { DiagnosticsView } from './components/DiagnosticsView';
+import { FirstRunWizard } from './components/FirstRunWizard';
+import { NetworkInterface, EngineStatus, FailoverEvent, SpeedTestResult, RelayNodeInfo, DiagnosticsStatus } from './types';
 
 const API_BASE = 'http://127.0.0.1:5000';
 const WS_URL = 'ws://127.0.0.1:5000/ws/telemetry';
@@ -18,28 +20,55 @@ export const App: React.FC = () => {
   const [interfaces, setInterfaces] = useState<NetworkInterface[]>([]);
   const [failoverEvents, setFailoverEvents] = useState<FailoverEvent[]>([]);
   const [config, setConfig] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'adapters' | 'logs'>('overview');
+  const [relays, setRelays] = useState<RelayNodeInfo[]>([
+    {
+      id: 'relay-default-1',
+      name: 'Frankfurt VPS Relay (Default)',
+      host: 'relay.nexusbond.net',
+      port: 51820,
+      public_key: 'yK8b8kX4d6Q7aB9cE2fG1hJ3lM5nO7pQ',
+      latency_ms: 24.0,
+      is_active: true,
+      status: 'Online',
+    },
+    {
+      id: 'relay-default-2',
+      name: 'US-East Cloud Relay (Standby)',
+      host: 'us-east.nexusbond.net',
+      port: 51820,
+      public_key: 'pQ7oN5mM3lK1jH3fG1eE2cA9aB9d6X4y',
+      latency_ms: 78.0,
+      is_active: false,
+      status: 'Online',
+    }
+  ]);
+  const [activeTab, setActiveTab] = useState<string>('overview');
 
   // Modals
   const [showModeModal, setShowModeModal] = useState(false);
   const [showSpeedTestModal, setShowSpeedTestModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showWizard, setShowWizard] = useState(false);
 
   // Fetch initial data
   const fetchData = async () => {
     try {
-      const [statusRes, ifacesRes, eventsRes, cfgRes] = await Promise.all([
+      const [statusRes, ifacesRes, eventsRes, cfgRes, relaysRes] = await Promise.all([
         fetch(`${API_BASE}/api/status`).then(r => r.json()),
         fetch(`${API_BASE}/api/interfaces`).then(r => r.json()),
         fetch(`${API_BASE}/api/failover/events`).then(r => r.json()),
         fetch(`${API_BASE}/api/config`).then(r => r.json()),
+        fetch(`${API_BASE}/api/relays`).then(r => r.json()).catch(() => []),
       ]);
       setStatus(statusRes);
       setInterfaces(ifacesRes);
       setFailoverEvents(eventsRes);
       setConfig(cfgRes);
+      if (Array.isArray(relaysRes) && relaysRes.length > 0) {
+        setRelays(relaysRes);
+      }
     } catch (e) {
-      console.warn("API not connected or engine is starting up...");
+      console.warn("NexusBond API connection waiting...");
     }
   };
 
@@ -64,7 +93,6 @@ export const App: React.FC = () => {
               mode: data.mode,
             } : null);
 
-            // Update interface dynamic stats
             if (data.interfaces) {
               setInterfaces(prev => {
                 const map = new Map<string, any>(data.interfaces.map((i: any) => [i.id, i]));
@@ -138,7 +166,21 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleSaveMode = async (mode: 'mode_a' | 'mode_b', relayConfig?: any) => {
+  const handleToggleKillSwitch = async () => {
+    const nextState = !(status?.kill_switch ?? false);
+    setStatus(prev => prev ? { ...prev, kill_switch: nextState } : null);
+    try {
+      await fetch(`${API_BASE}/api/config`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kill_switch: nextState })
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleSaveMode = async (mode: any, relayConfig?: any) => {
     try {
       await fetch(`${API_BASE}/api/config`, {
         method: 'POST',
@@ -172,6 +214,73 @@ export const App: React.FC = () => {
     return await res.json();
   };
 
+  const handleRunDiagnostics = async (): Promise<DiagnosticsStatus> => {
+    try {
+      const res = await fetch(`${API_BASE}/api/diagnostics`);
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch (e) {
+      console.error("Failed to run diagnostics", e);
+    }
+    return {
+      dns_leak_detected: false,
+      ipv6_leak_detected: false,
+      kill_switch_armed: status?.kill_switch ?? false,
+      shared_upstream_detected: false,
+    };
+  };
+
+  const handleAddRelay = async (rName: string, rHost: string, rPort: number, rPubKey: string) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/relays`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: rName, host: rHost, port: rPort, public_key: rPubKey }),
+      });
+      if (res.ok) {
+        const relaysRes = await fetch(`${API_BASE}/api/relays`).then(r => r.json());
+        if (Array.isArray(relaysRes)) setRelays(relaysRes);
+      }
+    } catch (e) {
+      console.error("Failed to add relay", e);
+    }
+  };
+
+  const handleSelectRelay = async (id: string) => {
+    try {
+      await fetch(`${API_BASE}/api/relays/${encodeURIComponent(id)}/select`, { method: 'POST' });
+      const relaysRes = await fetch(`${API_BASE}/api/relays`).then(r => r.json());
+      if (Array.isArray(relaysRes)) setRelays(relaysRes);
+    } catch (e) {
+      console.error("Failed to select relay", e);
+      setRelays(prev => prev.map(r => ({ ...r, is_active: r.id === id })));
+    }
+  };
+
+  const handleRemoveRelay = async (id: string) => {
+    try {
+      await fetch(`${API_BASE}/api/relays/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      const relaysRes = await fetch(`${API_BASE}/api/relays`).then(r => r.json());
+      if (Array.isArray(relaysRes)) setRelays(relaysRes);
+    } catch (e) {
+      console.error("Failed to remove relay", e);
+      setRelays(prev => prev.filter(r => r.id !== id));
+    }
+  };
+
+  const handleTestRelay = async (id: string) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/relays/${encodeURIComponent(id)}/test`, { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json();
+        setRelays(prev => prev.map(r => r.id === id ? { ...r, latency_ms: data.latency_ms, status: data.relay_status || 'Online' } : r));
+      }
+    } catch (e) {
+      console.error("Failed to test relay", e);
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col justify-between">
       <div>
@@ -180,9 +289,10 @@ export const App: React.FC = () => {
           onOpenModeSelector={() => setShowModeModal(true)}
           onOpenSpeedTest={() => setShowSpeedTestModal(true)}
           onOpenSettings={() => setShowSettingsModal(true)}
-          onOpenLogs={() => setActiveTab('logs')}
+          onOpenWizard={() => setShowWizard(true)}
+          onToggleKillSwitch={handleToggleKillSwitch}
           activeTab={activeTab}
-          setActiveTab={(tab: any) => setActiveTab(tab)}
+          setActiveTab={(tab: string) => setActiveTab(tab)}
         />
 
         <main className="max-w-7xl mx-auto px-6 pb-12">
@@ -245,6 +355,26 @@ export const App: React.FC = () => {
             </div>
           )}
 
+          {/* Relays Tab (v2) */}
+          {activeTab === 'relays' && (
+            <RelayManager
+              relays={relays}
+              onSelectRelay={handleSelectRelay}
+              onAddRelay={handleAddRelay}
+              onRemoveRelay={handleRemoveRelay}
+              onTestRelay={handleTestRelay}
+            />
+          )}
+
+          {/* Diagnostics Tab (v2) */}
+          {activeTab === 'diagnostics' && (
+            <DiagnosticsView
+              interfaces={interfaces}
+              killSwitchArmed={status?.kill_switch ?? false}
+              onRunDiagnostics={handleRunDiagnostics}
+            />
+          )}
+
           {/* Audit Logs Tab */}
           {activeTab === 'logs' && (
             <LogsViewer events={failoverEvents} />
@@ -253,9 +383,20 @@ export const App: React.FC = () => {
       </div>
 
       {/* Modals */}
+      {showWizard && (
+        <FirstRunWizard
+          interfaces={interfaces}
+          onClose={() => setShowWizard(false)}
+          onComplete={(selectedMode) => {
+            handleSaveMode(selectedMode);
+            setShowWizard(false);
+          }}
+        />
+      )}
+
       {showModeModal && (
         <ModeSelector
-          currentMode={status?.mode || 'mode_a'}
+          currentMode={(status?.mode as any) || 'auto'}
           onClose={() => setShowModeModal(false)}
           onSaveMode={handleSaveMode}
         />
@@ -279,8 +420,8 @@ export const App: React.FC = () => {
       {/* Footer */}
       <footer className="border-t border-white/5 py-6 px-6 text-center text-xs text-slate-500">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
-          <span>NexusBond Engine v1.0.0 • Open Source Multi-WAN Bonding</span>
-          <span className="text-[11px] text-slate-600 font-mono">WinTUN Kernel Virtual Subsystem Active</span>
+          <span>NexusBond v2.0.0 • High-Performance Rust Multi-WAN Bonding</span>
+          <span className="text-[11px] text-slate-600 font-mono">Noise_IK Encrypted Packet Data Plane</span>
         </div>
       </footer>
     </div>

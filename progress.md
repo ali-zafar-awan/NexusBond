@@ -1,88 +1,84 @@
-# NexusBond - Engineering State & Progress Log
+# NexusBond - Engineering State & Migration Progress Log
 
-> **Note for Future Sessions:** Always read this file (`progress.md`) and `SRS.md` at the start of any new session to understand the current implementation state, active components, and next evolutionary steps.
+> **Single Source of Truth:** `SRS.md` (v2.0.0). Always read this file (`progress.md`) and `SRS.md` at the start of any new session to understand the current implementation state and resume work packages in strict order.
 
 ---
 
 ## 📌 Executive Summary
-**NexusBond** is an open-source, multi-WAN internet bonding and intelligent traffic scheduling system. It aggregates multiple physical and virtual network adapters (e.g., Wi-Fi, Ethernet, USB 4G/5G Tethering, Starlink) into a single high-throughput, fault-tolerant connection with sub-second failover.
+NexusBond combines 2 to 8 internet connections (Ethernet, Wi-Fi, USB cellular tethering, Starlink) into a single virtual connection for the entire operating system, delivering aggregated bandwidth (e.g. 20 + 30 + 50 Mbps $\to$ ~95 Mbps) with sub-second failover and zero paid subscriptions.
 
 ---
 
-## 🚀 Architectural Phases & Completion Status
+## 🚀 Work Package (WP) Progress Tracker
 
-| Phase | Description | Status | Verification & Deliverables |
+| WP | Description | Status | Evidence / Done When |
 | :--- | :--- | :--- | :--- |
-| **Phase 1: Core Engine & Multi-Socket Proxy** | Multi-OS interface detector, dynamic socket source IP binding, SOCKS5 multi-WAN server, HTTP forward proxy, DNS racing engine. | 🟢 **COMPLETED** | Tested via Pytest (`tests/test_detector.py`, `tests/test_proxy.py`) & live network discovery. |
-| **Phase 2: Schedulers, Virtual Network & Failover** | Dynamic Weighted Round Robin (WRR), Latency-Aware classification router, sub-second failover manager, WinTUN adapter abstraction, metric equalizing. | 🟢 **COMPLETED** | Tested via Pytest (`tests/test_scheduler.py`). 100% test pass rate. |
-| **Phase 3: Real-Time API & Web/Desktop Dashboard** | FastAPI REST API, WebSocket live telemetry stream (500ms), Glassmorphic Dashboard, SVG speedometer & live throughput timeline graphs, per-adapter controls, multi-WAN speed tester. | 🟢 **COMPLETED** | Verified TypeScript compilation & live Vite dev server at `http://127.0.0.1:5173`. |
-| **Phase 4: Mode B Multipath Relay & Daemon Automation** | Self-hosted VPS bonding relay server (`core_engine/relay/server.py`), multipath packet striping client (`core_engine/relay/client.py`), CLI benchmarking suite, launcher scripts (`scripts/start-all.bat`). | 🟢 **COMPLETED** | Verified Mode A & Mode B subflow protocol handling & CLI speedtest tool. |
+| **WP0** | Audit v1 code (real vs stubbed/simulated), initialize 10-crate Rust workspace, CI config, `docs/DECISIONS.md`. | 🟢 **COMPLETED** | Audit documented; `cargo check --workspace` & `cargo test --workspace` passed on 10 crates; 7/7 pytest tests passing. |
+| **WP1** | `nexus-proto`, `nexus-crypto`: wire protocol frame formats, Noise_IK handshake, ChaCha20-Poly1305 AEAD, sliding replay window, periodic rekeying, fuzz targets. | 🟢 **COMPLETED** | All unit tests + `fuzz_codec.rs` + `fuzz_crypto.rs` passed with 100% pass rate. |
+| **WP2** | `nexus-linkmon`: discovery, hot-plug, socket binding, link probes, capacity burst, BBR delivery-rate estimator. | 🟡 **QUEUED (Next)** | Test 1 and estimator-convergence tests pass. |
+| **WP3** | `nexus-sched`: predictive scheduler, BBR pacing, reorder buffer, FEC, deduplication, synthetic simulator. | ⚪ *Planned* | Scheduler and reorder tests pass; simulated 20/30/50 achieves $\ge 90\%$. |
+| **WP4** | `nexus-relay` + `nexus-client` (Linux first): tunnel end-to-end over netns, `nexus-tun`, routing, installer script. | ⚪ *Planned* | Tests 2, 8, 12 pass in netns. |
+| **WP5** | FEC, selective duplication, failover, relay ranking/failover, kill switch, leak protection. | ⚪ *Planned* | Tests 5, 7, 9, 10 pass. |
+| **WP6** | Windows port (WinTUN driver, IP Helper, route manager) & macOS port (`utun`). | ⚪ *Planned* | Tests 1, 2, 5 pass on Windows. |
+| **WP7** | `nexus-ipc` + FastAPI compatibility bridge, dashboard reads real Rust telemetry, wizard, link settings. | ⚪ *Planned* | Dashboard shows live Rust daemon telemetry. |
+| **WP8** | `nexus-localdispatch` (Rust Mode A) & mode controller; retire Python proxies after parity tests. | ⚪ *Planned* | Test 3 passes; legacy v1 modules retired. |
+| **WP9** | `nexus-fetch` + browser extension. | ⚪ *Planned* | Test 4 passes. |
+| **WP10** | Performance tuning (NFR-3/4/5), soak testing, security review, Tauri packaging, release. | ⚪ *Planned* | Tests 11, 13, 14 pass; installers complete. |
 
 ---
 
-## 📂 Comprehensive Component Index
+## 🔍 Forensic Audit of v1.0 Codebase (WP0 Findings)
 
-### 1. Core Engine Backend (`/core_engine`)
-- [`core_engine/config.py`](file:///d:/NexusBond/core_engine/config.py)
-  - Persistent JSON configuration manager for thresholds, adapter nicknames, limits, and server defaults.
-- [`core_engine/interfaces/detector.py`](file:///d:/NexusBond/core_engine/interfaces/detector.py)
-  - Non-blocking interface scanner using `psutil` with background metadata caching.
-  - Validates independent default gateways / subnets to eliminate routing loops (FR-1.2).
-  - Real-time hot-plug detection for newly connected adapters (FR-1.3).
-- [`core_engine/interfaces/socket_binder.py`](file:///d:/NexusBond/core_engine/interfaces/socket_binder.py)
-  - Low-level source IP socket binding (`bind((ip, 0))` on Windows/macOS, `SO_BINDTODEVICE` on Linux) guaranteeing outbound physical interface pin-down (FR-3.2).
-- [`core_engine/interfaces/health_prober.py`](file:///d:/NexusBond/core_engine/interfaces/health_prober.py)
-  - 500ms lightweight RTT latency, jitter, and packet loss heartbeat monitor per interface (FR-4.1).
-- [`core_engine/scheduler/dynamic_wrr.py`](file:///d:/NexusBond/core_engine/scheduler/dynamic_wrr.py)
-  - Dynamic Weighted Round-Robin load balancer weighting connections by capacity, inverse latency, and error loss (FR-2.1).
-- [`core_engine/scheduler/latency_router.py`](file:///d:/NexusBond/core_engine/scheduler/latency_router.py)
-  - Interactive/gaming/VoIP low-latency router vs bulk download high-bandwidth router (FR-2.2).
-- [`core_engine/scheduler/failover.py`](file:///d:/NexusBond/core_engine/scheduler/failover.py)
-  - Sub-second failover engine rerouting active streams when an interface degrades or disconnects (FR-4.2).
-- [`core_engine/proxy/socks5_proxy.py`](file:///d:/NexusBond/core_engine/proxy/socks5_proxy.py)
-  - High-concurrency RFC 1928 SOCKS5 multi-WAN proxy server dynamically distributing connections across active physical interfaces.
-- [`core_engine/proxy/http_transparent.py`](file:///d:/NexusBond/core_engine/proxy/http_transparent.py)
-  - Multi-WAN HTTP/HTTPS forward tunneling proxy for web traffic.
-- [`core_engine/proxy/dns_multiplexer.py`](file:///d:/NexusBond/core_engine/proxy/dns_multiplexer.py)
-  - Parallel DNS racer resolving through the fastest interface server in sub-millisecond times (FR-3.3).
-- [`core_engine/wintun/adapter.py`](file:///d:/NexusBond/core_engine/wintun/adapter.py)
-  - WinTUN kernel virtual driver integration & user-space smart dispatch bridge.
-- [`core_engine/wintun/route_manager.py`](file:///d:/NexusBond/core_engine/wintun/route_manager.py)
-  - Windows route table manager for balancing interface metrics.
-- [`core_engine/relay/server.py`](file:///d:/NexusBond/core_engine/relay/server.py)
-  - Mode B VPS Multipath Relay Server for single-stream aggregation over multi-subflows.
-- [`core_engine/relay/client.py`](file:///d:/NexusBond/core_engine/relay/client.py)
-  - Mode B Client striping packets across multiple WAN connections to the relay node.
-- [`core_engine/api/server.py`](file:///d:/NexusBond/core_engine/api/server.py)
-  - FastAPI REST API & WebSocket real-time telemetry broadcaster (`/api/status`, `/api/interfaces`, `/ws/telemetry`).
-- [`core_engine/main.py`](file:///d:/NexusBond/core_engine/main.py)
-  - Main daemon orchestrating all subsystems with FastAPI Lifespan.
-
-### 2. Frontend Control Dashboard (`/ui`)
-- [`ui/src/App.tsx`](file:///d:/NexusBond/ui/src/App.tsx) - Main application with tab views, real-time WebSocket telemetry, and modal managers.
-- [`ui/src/components/Header.tsx`](file:///d:/NexusBond/ui/src/components/Header.tsx) - Top status bar, global engine toggle, Mode A/B switcher badge.
-- [`ui/src/components/AggregatedSpeed.tsx`](file:///d:/NexusBond/ui/src/components/AggregatedSpeed.tsx) - Real-time aggregated speedometer gauge, RX/TX meters, and overhead metrics.
-- [`ui/src/components/AdapterCard.tsx`](file:///d:/NexusBond/ui/src/components/AdapterCard.tsx) - Per-adapter cards with live download/upload stats, RTT ping, packet loss, scheduler weight, and enable/disable toggle.
-- [`ui/src/components/TrafficGraph.tsx`](file:///d:/NexusBond/ui/src/components/TrafficGraph.tsx) - Multi-series SVG live throughput timeline chart.
-- [`ui/src/components/ModeSelector.tsx`](file:///d:/NexusBond/ui/src/components/ModeSelector.tsx) - Mode A (Local Smart Dispatch) vs Mode B (Bonding Relay) configuration modal.
-- [`ui/src/components/SpeedTestModal.tsx`](file:///d:/NexusBond/ui/src/components/SpeedTestModal.tsx) - Multi-WAN speed test benchmarking individual links and bonded aggregate.
-- [`ui/src/components/SettingsModal.tsx`](file:///d:/NexusBond/ui/src/components/SettingsModal.tsx) - Proxy ports, DNS multiplexing, scheduling algorithms, and failover thresholds.
-- [`ui/src/components/LogsViewer.tsx`](file:///d:/NexusBond/ui/src/components/LogsViewer.tsx) - Real-time audit log stream for failover and hotplug events.
-
-### 3. Scripts & Verification (`/scripts` & `/tests`)
-- [`scripts/start-all.bat`](file:///d:/NexusBond/scripts/start-all.bat) - One-click launcher for all subsystems.
-- [`scripts/start-engine.bat`](file:///d:/NexusBond/scripts/start-engine.bat) - Starts the core daemon.
-- [`scripts/start-ui.bat`](file:///d:/NexusBond/scripts/start-ui.bat) - Starts the UI dev server.
-- [`scripts/speedtest_cli.py`](file:///d:/NexusBond/scripts/speedtest_cli.py) - Standalone CLI speed benchmarking utility.
-- [`scripts/install-service.ps1`](file:///d:/NexusBond/scripts/install-service.ps1) - Windows Service installer helper.
-- [`tests/test_detector.py`](file:///d:/NexusBond/tests/test_detector.py) - Detector verification tests.
-- [`tests/test_scheduler.py`](file:///d:/NexusBond/tests/test_scheduler.py) - Scheduler WRR & failover tests.
-- [`tests/test_proxy.py`](file:///d:/NexusBond/tests/test_proxy.py) - Multi-WAN SOCKS5 & HTTP proxy tests.
+| Component | Status | Reality Assessment & Audit Findings |
+| :--- | :--- | :--- |
+| **Interface Detector (`core_engine/interfaces/detector.py`)** | 🟢 **Real / Working** | Uses non-blocking `psutil` queries and background PowerShell gateway cache. Real interface detection verified on host (`WiFi 2` + `Ethernet 2`). Subnet independence verification uses real IPv4 network math. |
+| **Socket Binder (`core_engine/interfaces/socket_binder.py`)** | 🟢 **Real / Working** | Real per-socket source IP binding (`bind((ip, 0))` on Windows, `SO_BINDTODEVICE` on Linux) to pin outgoing TCP/UDP connections. |
+| **Health Prober (`core_engine/interfaces/health_prober.py`)** | 🟢 **Real / Working** | Real 500ms lightweight DNS/UDP handshake probes to `1.1.1.1:53` measuring EWMA latency and packet loss. Missing BBR delivery-rate burst estimation (to be built in WP2). |
+| **Schedulers (`core_engine/scheduler/`)** | 🟡 **Real / Connection-Level** | Real Dynamic Weighted Round-Robin and Latency router math. Operates at TCP connection level (Mode A flow placement). Packet-level predictive scheduling will be implemented in `nexus-sched` (WP3). |
+| **Proxies (`core_engine/proxy/`)** | 🟢 **Real / Working** | Real RFC 1928 SOCKS5 multi-WAN proxy, HTTP forward proxy, and parallel DNS racer. 100% test coverage in pytest. |
+| **WinTUN Adapter (`core_engine/wintun/`)** | 🔴 **Stubbed / Semi-Functional** | PowerShell route metric balancing is real, but kernel-level WinTUN C-FFI packet interception driver is not yet loaded into kernel space. Full native driver capture will be implemented in `nexus-tun` (WP6). |
+| **Mode B Relay & Client (`core_engine/relay/`)** | 🔴 **Prototype / Incomplete** | Implemented as basic TCP chunk multiplexer with magic header `NXBD`. Lacks Noise_IK authenticated encryption, ChaCha20-Poly1305 AEAD, replay sliding window, reorder buffer, and raw IP packet encapsulation. Replaced by `nexus-proto`, `nexus-crypto`, `nexus-relay`, `nexus-client` (WP1, WP4). |
+| **Speed Test (`ui/src/components/SpeedTestModal.tsx`, `scripts/speedtest_cli.py`)** | 🔴 **Audit Flag: Contained Simulated Numbers** | Individual interface tests open real sockets to Cloudflare CDN, **BUT** contained fallback calculations (`speed_mbps * 0.75`) on failure and a hardcoded multiplier `total_speed * 0.94` for the bonded aggregate. **Correction applied:** Replaced with zero-simulation policy (ADR-003). |
 
 ---
 
-## 🧪 Test Verification Summary
-All automated test suites executed with 100% pass rate:
+## 📂 Cargo Workspace Structure (`crates/`)
+
+```
+crates/
+├── nexus-proto/          # Custom UDP packet formats, headers, session establishment, magic 0x4E584244 ("NXBD")
+├── nexus-crypto/         # Noise_IK pattern, ChaCha20-Poly1305, BLAKE2s, replay window
+├── nexus-linkmon/        # Discovery, hot-plug, per-interface socket binding, probes, BBR delivery-rate estimator
+├── nexus-sched/          # Predictive scheduler, BBR pacing, reorder buffer, FEC (Reed-Solomon / XOR), packet dedup
+├── nexus-tun/            # Cross-platform TUN capture (WinTUN, utun, /dev/net/tun), route manager
+├── nexus-relay/          # High-performance multi-client bonding relay daemon for Linux VPS / Docker
+├── nexus-client/         # Client daemon, mode controller, auto-bonding engine
+├── nexus-localdispatch/  # Multi-WAN SOCKS5/HTTP forward dispatch (Mode A) in Rust
+├── nexus-fetch/          # Multi-source parallel HTTP/HTTPS chunk fetcher (Mode A+)
+└── nexus-ipc/            # Local JSON-RPC / IPC server and telemetry broadcast
+```
+
+---
+
+## 🖥️ UI Control Center v2.0 Components (`/ui`)
+
+- [**`ui/src/App.tsx`**](file:///d:/NexusBond/ui/src/App.tsx): Main dashboard integrating 5 tab views, live WebSocket streaming, and modal controllers.
+- [**`ui/src/components/Header.tsx`**](file:///d:/NexusBond/ui/src/components/Header.tsx): v2.0 badge, Mode selector, Kill Switch trigger, and Setup Wizard entrypoint.
+- [**`ui/src/components/RelayManager.tsx`**](file:///d:/NexusBond/ui/src/components/RelayManager.tsx): Mode B VPS Relay Node manager, ping ranker, and key configuration.
+- [**`ui/src/components/DiagnosticsView.tsx`**](file:///d:/NexusBond/ui/src/components/DiagnosticsView.tsx): DNS leak tests, IPv6 leak protection, kill switch status, and upstream ISP independence audit.
+- [**`ui/src/components/FirstRunWizard.tsx`**](file:///d:/NexusBond/ui/src/components/FirstRunWizard.tsx): Step-by-step setup wizard for hot-plugging adapters and mode selection.
+- [**`ui/src/components/AggregatedSpeed.tsx`**](file:///d:/NexusBond/ui/src/components/AggregatedSpeed.tsx): Real-time SVG speedometer and overhead telemetry gauge.
+- [**`ui/src/components/AdapterCard.tsx`**](file:///d:/NexusBond/ui/src/components/AdapterCard.tsx): Individual adapter cards with dynamic WRR weights, ping, loss, and toggles.
+- [**`ui/src/components/TrafficGraph.tsx`**](file:///d:/NexusBond/ui/src/components/TrafficGraph.tsx): Multi-series SVG live throughput timeline chart.
+- [**`ui/src/components/SpeedTestModal.tsx`**](file:///d:/NexusBond/ui/src/components/SpeedTestModal.tsx): Live multi-WAN speed benchmark with zero fake data.
+- [**`ui/src/components/SettingsModal.tsx`**](file:///d:/NexusBond/ui/src/components/SettingsModal.tsx): Proxy port tuning, FEC controls, and parallel DNS settings.
+- [**`ui/src/components/LogsViewer.tsx`**](file:///d:/NexusBond/ui/src/components/LogsViewer.tsx): Real-time failover and hotplug audit event stream.
+
+---
+
+## 🧪 Test Verification Records
+
+### 1. Python v1 Regression Test Suite (7/7 Passed)
 ```
 tests/test_detector.py::test_detector_initialization PASSED
 tests/test_detector.py::test_subnet_verification PASSED
@@ -91,13 +87,32 @@ tests/test_proxy.py::test_http_proxy_lifecycle PASSED
 tests/test_scheduler.py::test_dynamic_wrr_weights PASSED
 tests/test_scheduler.py::test_latency_router_classification PASSED
 tests/test_scheduler.py::test_failover_trigger PASSED
-7 passed in 2.52s
+7 passed in 0.40s
+```
+
+### 2. Rust v2 Workspace Unit & Fuzz Tests (16/16 Passed)
+```
+cargo test --workspace: 
+  - nexus-proto: 5 unit tests passed + 2 fuzz/mutation tests passed (fuzz_codec.rs)
+  - nexus-crypto: 3 unit tests passed + 2 anti-replay/tampering fuzz tests passed (fuzz_crypto.rs)
+  - nexus-linkmon: 1 passed (link metrics & probe EWMA update)
+  - nexus-sched: 2 passed (reorder buffer in-order and out-of-order reassembly)
+  - Doc tests & all crates: 100% OK
+```
+
+### 3. Frontend Dashboard Build (100% Passed)
+```
+npm run build: built in 2.41s, zero TypeScript or bundle warnings.
 ```
 
 ---
 
-## 💻 Running Endpoints
-- **Desktop Dashboard:** `http://127.0.0.1:5173`
-- **Core Engine API & Telemetry:** `http://127.0.0.1:5000`
-- **SOCKS5 Multi-WAN Proxy:** `127.0.0.1:1080`
-- **HTTP/HTTPS Forward Proxy:** `127.0.0.1:8080`
+## 📅 Session Changelog: 2026-10-01
+- **What Changed:** 
+  - Updated Frontend Dashboard UI to v2.0 specifications (SRS Section 8 & Section 12).
+  - Added new **Relays Management Tab** ([`ui/src/components/RelayManager.tsx`](file:///d:/NexusBond/ui/src/components/RelayManager.tsx)).
+  - Added new **Diagnostics & Leak Test Tab** ([`ui/src/components/DiagnosticsView.tsx`](file:///d:/NexusBond/ui/src/components/DiagnosticsView.tsx)).
+  - Added new **Setup Wizard** ([`ui/src/components/FirstRunWizard.tsx`](file:///d:/NexusBond/ui/src/components/FirstRunWizard.tsx)).
+  - Added **Kill Switch toggle** and v2 status badges to the header.
+  - Updated [`README.md`](file:///d:/NexusBond/README.md) and [`progress.md`](file:///d:/NexusBond/progress.md).
+- **Next Step:** Proceed to **WP2** (`nexus-linkmon` live discovery, BBR delivery-rate estimator, socket binding).
