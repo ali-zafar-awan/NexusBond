@@ -58,16 +58,58 @@ flowchart TB
 
 ---
 
-## 📋 Prerequisites
+## 📋 Prerequisites & Automatic Dependency Setup
 
-Before installing, ensure your system has the following tools installed:
+Before installing NexusBond, make sure you have **Git**, **Python (3.10+)**, **Node.js (18+)**, and optionally **Rust (1.75+)**. 
 
-| Prerequisite | Minimum Version | Installation Link |
-| :--- | :--- | :--- |
-| **Git** | `2.x+` | [git-scm.com](https://git-scm.com/downloads) |
-| **Python** | `3.10+` | [python.org](https://www.python.org/downloads/) *(Ensure "Add to PATH" is checked)* |
-| **Node.js & npm** | `18.x+` | [nodejs.org](https://nodejs.org/) *(LTS version recommended)* |
-| **Rust & Cargo** | `1.75+` *(Optional for building native crates)* | [rustup.rs](https://rustup.rs/) |
+Run the single command below for your operating system to install all prerequisites automatically:
+
+---
+
+### 🪟 Windows (Run in PowerShell as Administrator):
+Windows includes `winget` by default. Install all prerequisites in one line:
+```powershell
+winget install --id Git.Git --id Python.Python.3.11 --id OpenJS.NodeJS.LTS --id Rustlang.Rustup -e --accept-source-agreements --accept-package-agreements
+```
+*(Or if using Chocolatey: `choco install -y git python nodejs-lts rustup.install`)*
+
+---
+
+### 🐧 Linux (Run in Terminal):
+
+**Ubuntu / Debian / Linux Mint:**
+```bash
+# Update and install Git, Python 3, Node.js, and C++ build tools
+sudo apt update
+sudo apt install -y git python3 python3-pip python3-venv nodejs npm build-essential curl
+
+# Install Rust & Cargo (Optional for native crates)
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+source "$HOME/.cargo/env"
+```
+
+**Fedora / RHEL / CentOS:**
+```bash
+sudo dnf install -y git python3 python3-pip nodejs npm gcc gcc-c++ make curl
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+source "$HOME/.cargo/env"
+```
+
+**Arch Linux / Manjaro:**
+```bash
+sudo pacman -Syu --noconfirm git python python-pip nodejs npm base-devel rustup
+rustup default stable
+```
+
+---
+
+### 🍏 macOS (Run in Terminal):
+Ensure [Homebrew](https://brew.sh) is installed, then run:
+```bash
+# Install Command Line Tools, Git, Python, Node, and Rust
+xcode-select --install
+brew install git python@3.11 node rust
+```
 
 ---
 
@@ -98,8 +140,8 @@ npm run build
 cd ..
 ```
 
-#### Step C: (Optional) Compile Rust Crates
-If you want to build the native high-performance Rust core:
+#### Step C: (Optional) Compile Native Rust Crates
+If you want to build and test the native high-performance Rust core:
 ```powershell
 cargo test --workspace
 cargo build --release --workspace
@@ -109,20 +151,15 @@ cargo build --release --workspace
 
 ### 3. Linux Installation (Ubuntu / Debian / Arch / Fedora)
 
-#### Step A: Install System Dependencies (Ubuntu/Debian)
-```bash
-sudo apt update
-sudo apt install -y git python3 python3-pip python3-venv nodejs npm build-essential
-```
-
-#### Step B: Set Up Python Virtual Environment
+#### Step A: Set Up Python Virtual Environment
 ```bash
 python3 -m venv venv
 source venv/bin/activate
+pip install --upgrade pip
 pip install -r core_engine/requirements.txt
 ```
 
-#### Step C: Install UI Dependencies
+#### Step B: Install UI Dependencies & Build
 ```bash
 cd ui
 npm install
@@ -130,20 +167,26 @@ npm run build
 cd ..
 ```
 
+#### Step C: (Optional) Compile Rust Crates
+```bash
+cargo test --workspace
+cargo build --release --workspace
+```
+
 ---
 
 ### 4. macOS Installation
 
+#### Step A: Set Up Python Virtual Environment
 ```bash
-# Install Node and Python via Homebrew
-brew install node python git
-
-# Set up Python environment
 python3 -m venv venv
 source venv/bin/activate
+pip install --upgrade pip
 pip install -r core_engine/requirements.txt
+```
 
-# Install UI Dependencies
+#### Step B: Install UI Dependencies & Build
+```bash
 cd ui
 npm install
 npm run build
@@ -324,3 +367,4 @@ npm run build
 
 - **Repository:** [https://github.com/ali-zafar-awan/NexusBond](https://github.com/ali-zafar-awan/NexusBond)
 - **License:** [MIT License](https://opensource.org/licenses/MIT) - 100% Free, Open Source, and Zero Telemetry.
+- **Git Publishing Guidelines:** [**`git.md`**](file:///d:/NexusBond/git.md) - Rules for what to push vs. exclude on GitHub.
